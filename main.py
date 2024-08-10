@@ -12,7 +12,7 @@ for param in model.parameters():
     param.requires_grad = True
 
 # Define the input text
-input_text = " Never gonna give you up, never gonna let you down"
+input_text = "Peepee"
 
 # Tokenize the input text
 tokens = model.to_tokens(input_text)
