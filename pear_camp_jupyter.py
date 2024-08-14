@@ -1,26 +1,41 @@
+# ---
+# args: ["--timeout", 10]
+# ---
+
+# ## Overview
+#
+# Quick snippet showing how to connect to a Jupyter notebook server running inside a Modal container,
+# especially useful for exploring the contents of Modal Volumes.
+# This uses [Modal Tunnels](https://modal.com/docs/guide/tunnels#tunnels-beta)
+# to create a tunnel between the running Jupyter instance and the internet.
+#
+# If you want to your Jupyter notebook to run _locally_ and execute remote Modal Functions in certain cells, see the `basic.ipynb` example :)
 
 import os
 import subprocess
 import time
+
 import modal
 
-JUPYTER_TOKEN = os.getenv('JUPYTER_TOKEN')
-hf_token = os.getenv('HF_TOKEN')
-
-img = modal.Image.debian_slim().pip_install("torch", "jupyter", "transformer_lens", "matplotlib").env(
-    {"HF_TOKEN": hf_token}
+app = modal.App(
+    image=modal.Image.debian_slim().pip_install(
+        "transformer_lens", "matplotlib", "pynndescent", "jupyter"
+    )
 )
-
-app = modal.App()
-CACHE_DIR = "/root/cache"
-
 volume = modal.Volume.from_name(
-    "data", create_if_missing=True
+    "modal-examples-jupyter-inside-modal-data", create_if_missing=True
 )
 
-@app.function(image=img, concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=10_000, gpu="A100-80gb")
+CACHE_DIR = "/root/cache"
+JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
+
+
+@app.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=3600, gpu="T4")
 def run_jupyter(timeout: int):
     jupyter_port = 8888
+    import os
+
+    os.environ["TRANSFORMERS_CACHE"] = os.path.join(CACHE_DIR, "transformers")
     with modal.forward(jupyter_port) as tunnel:
         jupyter_process = subprocess.Popen(
             [
@@ -36,7 +51,7 @@ def run_jupyter(timeout: int):
             env={**os.environ, "JUPYTER_TOKEN": JUPYTER_TOKEN},
         )
 
-        print(f"Jupyter available at => {tunnel.url}")
+        print(f"Jupyter available at => {tunnel.url}/?token={JUPYTER_TOKEN}")
 
         try:
             end_time = time.time() + timeout
@@ -50,7 +65,13 @@ def run_jupyter(timeout: int):
 
 
 @app.local_entrypoint()
-def main(timeout: int = 10_000):
+def main():
     # Write some images to a volume, for demonstration purposes.
     # Run the Jupyter Notebook server
-    run_jupyter.remote(timeout=timeout)
+    run_jupyter.remote(timeout=3600)
+
+
+# Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts
+# the Juypter server at an address like https://u35iiiyqp5klbs.r3.modal.host.
+# Visit this address in your browser, and enter the security token
+# you set for `JUPYTER_TOKEN`.
