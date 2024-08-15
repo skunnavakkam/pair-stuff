@@ -18,8 +18,8 @@ import time
 import modal
 
 app = modal.App(
-    image=modal.Image.debian_slim().pip_install(
-        "transformer_lens", "matplotlib", "pynndescent", "jupyter"
+    image=modal.Image.debian_slim(python_version="3.9").pip_install(
+        "faiss-gpu", "transformer_lens", "matplotlib", "pynndescent", "jupyter"
     )
 )
 volume = modal.Volume.from_name(
@@ -30,7 +30,7 @@ CACHE_DIR = "/root/cache"
 JUPYTER_TOKEN = "1234"  # Change me to something non-guessable!
 
 
-@app.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=3600, gpu="T4")
+@app.function(concurrency_limit=1, volumes={CACHE_DIR: volume}, timeout=7200, gpu="T4")
 def run_jupyter(timeout: int):
     jupyter_port = 8888
     import os
@@ -68,7 +68,7 @@ def run_jupyter(timeout: int):
 def main():
     # Write some images to a volume, for demonstration purposes.
     # Run the Jupyter Notebook server
-    run_jupyter.remote(timeout=3600)
+    run_jupyter.remote(timeout=7200)
 
 
 # Doing `modal run jupyter_inside_modal.py` will run a Modal app which starts

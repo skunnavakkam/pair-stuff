@@ -1,9 +1,10 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import random
 
 # I use small models because I'm GPU poor
-model1 = "Qwen/Qwen2-0.5B"
-model2 = "gpt2"
+model1 = "gpt2"
+model2 = "EleutherAI/pythia-160m"
 
 # Load the models
 model1_tokenizer = AutoTokenizer.from_pretrained(model1)
@@ -44,9 +45,41 @@ B_test = B[int(0.9 * len(B)) :]
 # then we need to create a matrix W
 # then minimizing ||AW - B||^2
 
-W, residuals, rank, singular_values = torch.linalg.lstsq(A_train, B_train)
+W = torch.linalg.lstsq(A_train, B_train).solution
 
 
 test_mse = torch.mean((A_test @ W - B_test) ** 2)
 train_mse = torch.mean((A_train @ W - B_train) ** 2)
-print(test_mse, train_mse)
+# print(test_mse, train_mse)
+
+# I now want to check how close this is for a random word, say " straw"
+
+# pick a random word from intersections
+
+sum = 0
+num = 0
+
+for i in range(100):
+    word = random.choice(intersection)
+
+    word_id1 = model1_tokenizer.convert_tokens_to_ids(word)
+    word_id2 = model2_tokenizer.convert_tokens_to_ids(word)
+
+    straw_embedding1 = model1_embedding_matrix[word_id1]
+    straw_embedding2 = model2_embedding_matrix[word_id2]
+
+    straw_embedding1 = straw_embedding1 - A_avg
+    straw_embedding2 = straw_embedding2 - B_avg
+
+    straw_embedding1 = straw_embedding1 @ W
+
+    # get the dot product
+    dot_product = torch.dot(
+        straw_embedding1 / torch.linalg.norm(straw_embedding1),
+        straw_embedding2 / torch.linalg.norm(straw_embedding2),
+    )
+
+    num += 1
+    sum += dot_product
+
+print(sum / num)
